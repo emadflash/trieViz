@@ -2,6 +2,8 @@ import sys
 import argparse
 from typing import List
 
+import graphviz
+
 class Trie:
     def __init__(self, isEOW: bool = False):
         self.isEOW: bool = isEOW
@@ -40,26 +42,23 @@ class Trie:
     def childIdxToAscii(idx) -> str:
         return chr(idx)
 
-    def dumpGraphviz(self) -> str:
-        s: str = ""
+    def getDigraph(self, filename: str = 'trieViz.gv'):
+        digraph = graphviz.Digraph("trie", filename = filename)
         iterIdx: int = 0
 
         def dumpTrie(parentIterIdx: int, childs: List['Trie']):
-            nonlocal iterIdx, s
+            nonlocal iterIdx, digraph
 
             for idx, c in enumerate(childs):
                 if c is not None:
                     iterIdx += 1
-                    s += f"    Node_{parentIterIdx} -> Node_{iterIdx} [label=\"{Trie.childIdxToAscii(idx)}\"]\n"
-                    s += f"    Node_{iterIdx} [label=\"\"]\n"
+                    digraph.edge(f'Node_{parentIterIdx}', f'Node_{iterIdx}', label=f'{Trie.childIdxToAscii(idx)}')
+                    digraph.node(f'Node_{iterIdx}', label='')
                     dumpTrie(iterIdx, c.childs)
 
-        s += "digraph Trie {\n"
-        s += f"    Node_0 [label=\"START\"]\n"
+        digraph.node(f'Node_0', label = 'START')
         dumpTrie(0, self.childs)
-        s += "}"
-
-        return s
+        return digraph
 
 
 def main() -> None:
@@ -77,7 +76,8 @@ def main() -> None:
 
     root = Trie(False)
     root.insertList(stdin)
-    print(root.dumpGraphviz())
+    digraph = root.getDigraph()
+    digraph.view()
 
 if __name__ == '__main__':
     main()
