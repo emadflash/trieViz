@@ -1,68 +1,66 @@
-import sys
 import argparse
-from typing import List
+import sys
+from typing import Dict, List, Tuple
 
 import graphviz
 
 
-class Trie:
-    def __init__(self, isEOW: bool = False):
+class TrieNode:
+    def __init__(self, isEOW: bool = False) -> None:
         self.isEOW: bool = isEOW
-        self.childs: List["Trie"] = [None] * 256
+        self.children: Dict[int, "TrieNode"] = {}
 
-    def insert(self, word: str) -> None:
-        def mInsert(root: "Trie", word: str) -> None:
-            if len(word) == 0:
-                return
+    def __repr__(self) -> str:
+        return f"(isEOW: {self.isEOW}, children: {self.children})"
 
-            letterIdx: int = Trie.chrToChildIdx(word[0])
 
-            if root.childs[letterIdx] is None:
-                root.childs[letterIdx] = Trie(False)
+class Trie:
+    def insert(root: TrieNode, word: str) -> None:
+        nextNode: "TrieNode"
+        currIdx: int = 0
 
-            if len(word) == 1:
-                root.childs[letterIdx].isEOW = True
-            else:
-                mInsert(root.childs[letterIdx], word[1:])
+        while currIdx < len(word) and ord(word[currIdx]) in root.children:
+            root = root.children[ord(word[currIdx])]
+            currIdx += 1
 
-        return mInsert(self, word)
+        while currIdx < len(word):
+            nextNode = TrieNode()
+            root.children[ord(word[currIdx])] = nextNode
+            root = nextNode
+            currIdx += 1
 
-    def insertList(self, l: List[str]) -> None:
-        for s in l:
-            self.insert(s)
+        root.isEOW = True
 
-    def search(self, word: str) -> bool:
-        pass
-
-    def startsWith(self, prefix: str) -> bool:
-        pass
-
-    def chrToChildIdx(ch) -> int:
-        return ord(ch)
-
-    def childIdxToAscii(idx) -> str:
-        return chr(idx)
-
-    def getDigraph(self, filename: str = "trieViz.gv"):
+    def get_digraph(
+        root: TrieNode, filename: str = "trieViz.gv"
+    ) -> graphviz.graphs.Digraph:
         digraph = graphviz.Digraph("trie", filename=filename)
-        iterIdx: int = 0
+        parentIterIdx: int = 0
+        nodeCount: int = 0
 
-        def dumpTrie(parentIterIdx: int, childs: List["Trie"]):
-            nonlocal iterIdx, digraph
+        childrenPending: List[TrieNode] = [root]
+        parentIdxPending: List[int] = [0]
 
-            for idx, c in enumerate(childs):
-                if c is not None:
-                    iterIdx += 1
-                    digraph.edge(
-                        f"Node_{parentIterIdx}",
-                        f"Node_{iterIdx}",
-                        label=f"{Trie.childIdxToAscii(idx)}",
-                    )
-                    digraph.node(f"Node_{iterIdx}", label="")
-                    dumpTrie(iterIdx, c.childs)
+        while len(childrenPending) != 0:
+            curr = childrenPending[-1]
+            parentIdx = parentIdxPending[-1]
+
+            digraph.node(f"Node_{parentIdx}", label="")
+            childrenPending.pop()
+            parentIdxPending.pop()
+
+            for childK, childV in curr.children.items():
+                nodeCount += 1
+                digraph.edge(
+                    f"Node_{parentIdx}",
+                    f"Node_{nodeCount}",
+                    label=f"{chr(childK)}",
+                )
+
+                childrenPending.append(childV)
+                parentIdxPending.append(nodeCount)
 
         digraph.node(f"Node_0", label="START")
-        dumpTrie(0, self.childs)
         return digraph
 
 
@@ -81,9 +79,12 @@ def main() -> None:
     else:
         stdin = []
 
-    root = Trie(False)
-    root.insertList(stdin)
-    digraph = root.getDigraph()
+    root = TrieNode(False)
+
+    for val in stdin:
+        Trie.insert(root, val)
+
+    digraph = Trie.get_digraph(root)
     digraph.view()
 
 
