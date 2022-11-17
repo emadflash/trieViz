@@ -10,63 +10,101 @@ class TrieNode:
         self.isEOW: bool = isEOW
         self.children: Dict[int, "TrieNode"] = {}
 
+    def __getitem__(self, k: str) -> "TrieNode":
+        assert len(k) == 1
+        _k = ord(k)
+        if _k not in self.children:
+            raise KeyError(k)
+        return self.children[_k]
+
+    def __setitem__(self, k: str, v: "TrieNode") -> None:
+        assert len(k) == 1
+        self.children[ord(k)] = v
+
+    def __contains__(self, child) -> bool:
+        return bool(ord(child) in self.children)
+
+    def __len__(self) -> int:
+        return len(self.children)
+
     def __repr__(self) -> str:
         return f"(isEOW: {self.isEOW}, children: {self.children})"
 
 
 class Trie:
-    def insert(root: TrieNode, word: str) -> None:
-        nextNode: "TrieNode"
-        currIdx: int = 0
+    def __init__(self) -> None:
+        self.root: TrieNode = TrieNode()
 
-        while currIdx < len(word) and ord(word[currIdx]) in root.children:
-            root = root.children[ord(word[currIdx])]
+    def insert(self, word: str) -> None:
+        nextNode: TrieNode
+        currIdx: int = 0
+        root = self.root
+
+        while currIdx < len(word) and word[currIdx] in root:
+            root = root[word[currIdx]]
             currIdx += 1
 
         while currIdx < len(word):
             nextNode = TrieNode()
-            root.children[ord(word[currIdx])] = nextNode
+            root[word[currIdx]] = nextNode
             root = nextNode
             currIdx += 1
 
         root.isEOW = True
 
-    def get_digraph(
-        root: TrieNode, filename: str = "trieViz.gv"
-    ) -> graphviz.graphs.Digraph:
-        digraph = graphviz.Digraph("trie", filename=filename)
-        parentIterIdx: int = 0
-        nodeCount: int = 0
+    def search(self, word: str) -> bool:
+        root = self.root
+        for i in word:
+            if i not in root:
+                return False
+            root = root[i]
 
-        childrenPending: List[TrieNode] = [root]
-        parentIdxPending: List[int] = [0]
+        return root.isEOW
 
-        while len(childrenPending) != 0:
-            curr = childrenPending[-1]
-            parentIdx = parentIdxPending[-1]
+    def startsWith(self, prefix: str) -> bool:
+        root = self.root
+        for i in prefix:
+            if i not in root:
+                return False
+            root = root[i]
 
-            digraph.node(f"Node_{parentIdx}", label="")
-            childrenPending.pop()
-            parentIdxPending.pop()
+        return True
 
-            for childK, childV in curr.children.items():
-                nodeCount += 1
-                digraph.edge(
-                    f"Node_{parentIdx}",
-                    f"Node_{nodeCount}",
-                    label=f"{chr(childK)}",
-                )
 
-                childrenPending.append(childV)
-                parentIdxPending.append(nodeCount)
+def get_digraph(
+    root: TrieNode, filename: str = "trieViz.gv"
+) -> graphviz.graphs.Digraph:
+    digraph = graphviz.Digraph("trie", filename=filename)
+    parentIterIdx: int = 0
+    nodeCount: int = 0
 
-        digraph.node(f"Node_0", label="START")
-        return digraph
+    childrenPending: List[TrieNode] = [root]
+    parentIdxPending: List[int] = [0]
+
+    while len(childrenPending) != 0:
+        curr = childrenPending[-1]
+        parentIdx = parentIdxPending[-1]
+
+        digraph.node(f"Node_{parentIdx}", label="")
+        childrenPending.pop()
+        parentIdxPending.pop()
+
+        for childK, childV in curr.children.items():
+            nodeCount += 1
+            digraph.edge(
+                f"Node_{parentIdx}",
+                f"Node_{nodeCount}",
+                label=f"{chr(childK)}",
+            )
+
+            childrenPending.append(childV)
+            parentIdxPending.append(nodeCount)
+
+    digraph.node(f"Node_0", label="START")
+    return digraph
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-
     parser = argparse.ArgumentParser()
     parser.add_argument("args", nargs=argparse.REMAINDER)
     parser.add_argument(
@@ -79,12 +117,11 @@ def main() -> None:
     else:
         stdin = []
 
-    root = TrieNode(False)
-
+    trie = Trie()
     for val in stdin:
-        Trie.insert(root, val)
+        trie.insert(val)
 
-    digraph = Trie.get_digraph(root)
+    digraph = get_digraph(trie.root)
     digraph.view()
 
 
